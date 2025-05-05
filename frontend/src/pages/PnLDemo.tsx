@@ -1,9 +1,11 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import PnLDashboard from '@/components/PnLDashboard';
 import { PnLData } from '@/types/pnlTypes';
+import { Button } from '@/components/ui/button';
 
-// Sample data based on the provided JSON structure
+// Sample data as fallback if no real data is available
 const sampleData: PnLData = {
   "companyName": "Augment Pty Ltd",
   "period": "For The Month Ended 30 April 2025",
@@ -196,11 +198,54 @@ const sampleData: PnLData = {
 };
 
 const PnLDemoPage = () => {
+  const navigate = useNavigate();
+  const [dashboardData, setDashboardData] = useState<PnLData>(sampleData);
+  const [isRealData, setIsRealData] = useState<boolean>(false);
+
+  useEffect(() => {
+    // Try to get data from localStorage
+    const storedData = localStorage.getItem('pnlData');
+    
+    if (storedData) {
+      try {
+        const parsedData = JSON.parse(storedData);
+        setDashboardData(parsedData);
+        setIsRealData(true);
+      } catch (error) {
+        console.error('Error parsing stored data:', error);
+        // Fallback to sample data if parsing fails
+        setDashboardData(sampleData);
+      }
+    }
+  }, []);
+
+  const handleBackToUpload = () => {
+    // Clear stored data and navigate back to the upload page
+    localStorage.removeItem('pnlData');
+    navigate('/dashboard');
+  };
+
   return (
-    <div className="min-h-screen bg-[#171332] p-4 md:p-6">
-      <div className="max-w-7xl mx-auto">
-        <h1 className="text-3xl md:text-4xl font-bold text-white mb-6">Profit and Loss Dashboard</h1>
-        <PnLDashboard data={sampleData} />
+    <div className="min-h-screen bg-gray-900">
+      <div className="container mx-auto p-4">
+        {isRealData && (
+          <div className="flex justify-between items-center mb-4">
+            <div className="text-white">
+              <span className="bg-green-600 text-xs font-medium px-2.5 py-0.5 rounded-full mr-2">
+                Real Data
+              </span>
+              Viewing your uploaded financial data
+            </div>
+            <Button 
+              variant="outline" 
+              onClick={handleBackToUpload}
+              className="text-white border-white hover:bg-gray-800"
+            >
+              Upload New File
+            </Button>
+          </div>
+        )}
+        <PnLDashboard data={dashboardData} />
       </div>
     </div>
   );

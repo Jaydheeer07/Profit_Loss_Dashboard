@@ -24,10 +24,10 @@ class Settings(BaseSettings):
     API_VERSION: str = "1.0.0"
     
     # CORS settings
-    CORS_ORIGINS: List[str] = Field(default=["*"])
+    CORS_ORIGINS: List[str] = Field(default=["http://localhost:8080", "http://localhost:3000", "http://127.0.0.1:8080", "http://127.0.0.1:3000"])
     CORS_ALLOW_CREDENTIALS: bool = True
-    CORS_ALLOW_METHODS: List[str] = Field(default=["*"])
-    CORS_ALLOW_HEADERS: List[str] = Field(default=["*"])
+    CORS_ALLOW_METHODS: List[str] = Field(default=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
+    CORS_ALLOW_HEADERS: List[str] = Field(default=["Content-Type", "Authorization", "Accept"])
     
     # OpenAI API settings
     OPENAI_API_KEY: Optional[str] = None
