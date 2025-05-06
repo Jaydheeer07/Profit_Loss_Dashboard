@@ -1,9 +1,10 @@
 /**
  * Main dashboard page that integrates file upload and displays the P&L dashboard.
  * This component connects the frontend to the backend API.
+ * It can receive data from the landing page via localStorage.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useFileUpload } from '../hooks/useFileUpload';
 import { useInsights } from '../hooks/useInsights';
@@ -20,6 +21,42 @@ import { Loader2 } from 'lucide-react';
 const Dashboard: React.FC = () => {
   // State for tracking the current step in the workflow
   const [currentStep, setCurrentStep] = useState<'upload' | 'metrics' | 'insights' | 'dashboard'>('upload');
+  
+  // Use navigate for redirection
+  const navigate = useNavigate();
+  
+  // Check for data from landing page on component mount
+  useEffect(() => {
+    // Check if we have data from the landing page
+    const storedFinancialData = localStorage.getItem('financialData');
+    const storedMetricsData = localStorage.getItem('metricsData');
+    const storedInsightsData = localStorage.getItem('insightsData');
+    
+    if (storedFinancialData && storedMetricsData && storedInsightsData) {
+      console.log('Found data from landing page, initializing dashboard');
+      
+      try {
+        // Parse the stored data
+        const financialData = JSON.parse(storedFinancialData);
+        const metricsData = JSON.parse(storedMetricsData);
+        const insightsData = JSON.parse(storedInsightsData);
+        
+        // Create combined data for the PnL dashboard
+        const combinedData = {
+          ...financialData,
+          insights: insightsData
+        };
+        
+        // Store the data for PnLDemo
+        localStorage.setItem('pnlData', JSON.stringify(combinedData));
+        
+        // Navigate directly to the PnL dashboard
+        navigate('/pnl-demo');
+      } catch (error) {
+        console.error('Error parsing stored data:', error);
+      }
+    }
+  }, [navigate]);
   
   // Custom hooks for file upload and insights
   const { 
@@ -61,9 +98,6 @@ const Dashboard: React.FC = () => {
   const handleUploadError = (error: Error) => {
     console.error('File upload error:', error);
   };
-
-  // Use navigate for redirection
-  const navigate = useNavigate();
 
   // Generate insights from metrics data
   const handleGenerateInsights = async () => {
@@ -154,6 +188,16 @@ const Dashboard: React.FC = () => {
 
   // Render the appropriate content based on the current step
   const renderContent = () => {
+    // Check if we have data from the landing page
+    const hasLandingPageData = localStorage.getItem('financialData') && 
+                             localStorage.getItem('metricsData') && 
+                             localStorage.getItem('insightsData');
+    
+    // If we have landing page data, show a loading message while we redirect
+    if (hasLandingPageData) {
+      return renderLoading('Loading your dashboard...');
+    }
+    
     // Show upload errors
     if (uploadError) {
       return renderError(uploadError, 'File Upload Error');

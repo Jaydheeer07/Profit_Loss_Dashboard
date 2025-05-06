@@ -1,4 +1,4 @@
-# Profit & Loss Dashboard - Implementation Plan
+# ProfitLens - Implementation Plan
 
 ## 1. Overview
 
@@ -120,7 +120,90 @@ This document outlines the implementation plan for a Profit & Loss Dashboard tha
    - Export functionality for reports and insights
    - Responsive design for desktop and mobile
 
-## 3. Implementation Roadmap
+## 3. ProfitLens Integration Plan
+
+### 3.1 Overview
+
+We have successfully created a modern landing page for ProfitLens with all the required UI/UX improvements. The landing page is available in a separate repository (https://github.com/Jaydheeer07/profitlens-insights-hub.git) and needs to be integrated with our existing Profit & Loss Dashboard application.
+
+### 3.2 Integration Architecture
+
+```
+frontend/
+├── src/
+│   ├── components/  <-- Copy components from profitlens-insights-hub
+│   │   ├── Header.tsx
+│   │   ├── FileUpload.tsx (modify to use existing API)
+│   │   └── ... (other components)
+│   ├── pages/
+│   │   ├── Index.tsx (landing page)
+│   │   ├── Dashboard.tsx (existing dashboard with 3-column layout)
+│   │   └── PnLDemo.tsx (rename to align with new branding)
+│   └── App.tsx (update routes)
+```
+
+### 3.3 API Integration
+
+The FileUpload component from the ProfitLens landing page needs to be modified to use our existing API client:
+
+1. **File Upload**: Connect to the existing `/api/upload/` endpoint
+2. **Metrics Calculation**: Use the `/api/analyzer/metrics/` endpoint
+3. **Insights Generation**: Connect to the `/api/insights/insights/` endpoint
+4. **Data Flow**: Store combined data in localStorage and redirect to dashboard
+
+### 3.4 Implementation Steps
+
+1. **Copy Components**: Transfer all UI components from the profitlens-insights-hub repository
+2. **API Integration**: Modify the FileUpload component to use our existing API client
+3. **Update Routing**: Modify App.tsx to include the landing page and dashboard
+4. **Styling Consistency**: Copy Tailwind configuration to ensure consistent styling
+5. **Testing**: Verify the complete flow from landing page to dashboard
+
+## 4. UI/UX Design Strategy
+
+### 3.1 Dashboard Layout
+
+#### 3.1.1 Three-Column Layout
+The dashboard will use a three-column layout to create a natural information flow:
+
+1. **Left Column (Metrics)**
+   - Financial summary cards
+   - Profit margin gauges
+   - Key performance indicators
+
+2. **Middle Column (Visualizations)**
+   - Income breakdown charts with trend lines
+   - Expense category pie charts
+   - Interactive data visualizations
+
+3. **Right Column (Insights)**
+   - Color-coded insights (red/yellow/green)
+   - Actionable recommendations
+   - Financial health summary
+
+#### 3.1.2 Visual Indicators
+- Use consistent color coding for financial health indicators
+- Implement icons to highlight critical insights
+- Add tooltips for additional context on hover
+
+### 3.2 File Upload Experience
+
+#### 3.2.1 Modern Landing Page
+- Clean, minimalist design with clear call-to-action
+- Prominent file upload area with drag-and-drop functionality
+- Sample templates and format guidance
+
+#### 3.2.2 Streamlined Workflow
+- Automated process from upload to dashboard
+- Progress indicators for each processing step
+- Animated loading states with estimated completion times
+
+#### 3.2.3 Error Handling
+- Clear, specific error messages
+- Guided troubleshooting for common issues
+- Retry options for failed operations
+
+## 4. Implementation Roadmap
 
 ### 3.1 Phase 1: Core Data Processing
 

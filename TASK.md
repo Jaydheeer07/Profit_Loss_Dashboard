@@ -164,17 +164,50 @@
       - [x] Add loading states and error handling
       - [x] Implement file upload functionality
     
-    - [ ] **Step 5: Add LLM Insights UI**
-      - [ ] Create components for displaying AI insights
-      - [ ] Add loading states and error handling
-      - [ ] Implement feedback mechanism for insights
-      - [ ] Design recommendation display components
+    - [ ] **Step 5: Dashboard UI/UX Improvements** *(In Progress 2025-05-06)*
+      - [ ] Implement three-column layout (metrics → visualizations → insights)
+      - [ ] Add visual indicators (icons, colors) to highlight critical insights
+      - [ ] Enhance data visualizations:
+        - [ ] Add trend lines to income breakdown chart
+        - [ ] Implement interactive tooltips on hover for all charts
+      - [ ] Add more chart types and interactive elements
+      - [ ] Implement color-coded insights (red for critical, yellow for warnings, green for positive)
+      - [ ] Improve responsive design for different screen sizes
+      - [ ] Add navigation breadcrumbs for better user orientation
     
-    - [ ] **Step 6: Add Export and Sharing**
+    - [x] **Step 6: ProfitLens Landing Page Integration** *(Completed 2025-05-06)*
+      - [x] Create a modern landing page with file upload functionality
+      - [x] Implement user guidance features:
+        - [x] Add step indicator showing "Upload → Generate Insights → View Dashboard"
+        - [x] Include sample file templates for users to download
+        - [x] Add tooltips explaining expected file format
+      - [x] Enhance upload experience:
+        - [x] Implement drag-and-drop file upload
+        - [x] Add file validation with clear error messages
+        - [x] Show a preview of the uploaded data before proceeding
+      - [x] Improve loading states:
+        - [x] Add progress indicators for each step (upload, metrics, insights)
+        - [x] Include animated illustrations during loading
+      - [x] Streamline workflow:
+        - [x] Remove "Generate Insight" button and page
+        - [x] Automate flow from upload to insights to dashboard
+        - [x] Mask wait times with loading animations
+      - [x] Enhance error handling:
+        - [x] Provide specific error messages for different failure scenarios
+        - [x] Add retry options for failed uploads or API calls
+      - [x] **Integration Steps:**
+        - [x] Copy components from profitlens-insights-hub repository
+        - [x] Modify FileUpload.tsx to use existing API client
+        - [x] Update App.tsx routing to include the landing page
+        - [x] Ensure styling consistency with Tailwind configuration
+        - [x] Connect API endpoints for file upload, metrics, and insights
+        - [x] Add real downloadable sample Excel template
+        - [x] Test the complete flow from landing page to dashboard
+    
+    - [ ] **Step 7: Add Export and Sharing**
       - [ ] Implement PDF export functionality
       - [ ] Add data export options (CSV, Excel)
       - [ ] Create shareable report links
-      - [ ] Build print-friendly views
     
   - [ ] **Phase 3: Deployment and Integration**
     - [ ] **Step 1: Deploy Backend to Render**
@@ -209,13 +242,6 @@
   - Add usage examples
   - Document API and data structures
   
-- [ ] Enhance dashboard visualizations
-  - Add interactive drilldown capabilities to charts
-  - Implement year-over-year comparison charts
-  - Create benchmark comparison feature (industry standards)
-  - Add forecast projections based on historical data
-  - Improve chart legends and annotations
-  - Add conditional formatting to highlight critical metrics
 
 ### Low Priority
 
@@ -229,10 +255,6 @@
   - Enable consolidated reporting
   - Implement directory scanning
 
-- [ ] Add export options
-  - Support CSV export
-  - Support Excel export
-  - Add report generation
 
 ## Discovered During Work
 
