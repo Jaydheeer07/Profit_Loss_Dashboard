@@ -1,22 +1,20 @@
-
 import React from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 
 interface GaugeChartProps {
   value: number;
   max?: number;
-  label?: string;
   color?: string;
 }
 
 const GaugeChart: React.FC<GaugeChartProps> = ({ 
   value, 
   max = 100, 
-  label, 
   color = '#74e455' 
 }) => {
   // Calculate the percentage for the gauge
   const percentage = (value / max) * 100;
+  const displayValue = percentage.toFixed(1); // Value to display, e.g., "93.0"
   
   // Create data for the gauge (active part and inactive part)
   const data = [
@@ -29,8 +27,8 @@ const GaugeChart: React.FC<GaugeChartProps> = ({
   const endAngle = 0;
   
   return (
-    <div className="relative">
-      <div className="h-[100px]">
+    <div className="relative w-full flex flex-col items-center">
+      <div className="h-[70px] w-[140px] relative"> 
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
@@ -46,16 +44,19 @@ const GaugeChart: React.FC<GaugeChartProps> = ({
               strokeWidth={0}
             >
               <Cell key="active" fill={color} />
-              <Cell key="inactive" fill="#2c2964" />
+              <Cell key="inactive" fill="#E5E7EB" /> 
             </Pie>
           </PieChart>
         </ResponsiveContainer>
-      </div>
-      {label && (
-        <div className="absolute bottom-0 left-0 right-0 text-center text-sm text-gray-300">
-          {label}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <span 
+            className="text-xl font-semibold text-gray-700" 
+            style={{ transform: 'translateY(10px)' }} 
+          >
+            {displayValue}%
+          </span>
         </div>
-      )}
+      </div>
     </div>
   );
 };

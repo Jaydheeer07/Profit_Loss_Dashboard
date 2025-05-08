@@ -1,4 +1,3 @@
-
 import { PnLData, PnLAccount } from "../types/pnlTypes";
 
 // Aggregates expenses by category
@@ -78,15 +77,17 @@ export const getExpensePercentages = (data: PnLData) => {
   }));
 };
 
-// Get profit margins
+// Get profit margins and expense ratios
 export const getProfitMargins = (data: PnLData) => {
   const totalIncome = data.sections.tradingIncome.total;
   const grossProfit = data.sections.grossProfit;
   const netProfit = data.sections.netProfit;
+  const operatingExpenses = data.sections.operatingExpenses.total;
   
   return {
     grossMargin: Math.round((grossProfit / totalIncome) * 100),
-    netMargin: Math.round((netProfit / totalIncome) * 100)
+    netMargin: Math.round((netProfit / totalIncome) * 100),
+    expenseRatio: Math.round((Math.abs(operatingExpenses) / totalIncome) * 100)
   };
 };
 
@@ -100,7 +101,7 @@ export const getTopExpenses = (data: PnLData, limit: number = 5): PnLAccount[] =
 // Prepare data for income breakdown chart
 export const getIncomeBreakdown = (data: PnLData) => {
   return data.sections.tradingIncome.accounts.map(account => ({
-    name: account.name.split(' - ')[1] || account.name,
+    name: account.name, // Use the full original account name
     value: account.value
   }));
 };

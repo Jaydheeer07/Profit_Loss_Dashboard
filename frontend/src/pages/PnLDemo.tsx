@@ -1,9 +1,10 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import PnLDashboard from '@/components/PnLDashboard';
+import Dashboard from '@/components/Dashboard';
 import { PnLData } from '@/types/pnlTypes';
+import { FinancialData, FinancialInsightResponse } from '@/types/api';
 import { Button } from '@/components/ui/button';
+import { adaptFinancialDataToPnLData } from '@/utils/dataAdapters';
 
 // Sample data as fallback if no real data is available
 const sampleData: PnLData = {
@@ -199,7 +200,8 @@ const sampleData: PnLData = {
 
 const PnLDemoPage = () => {
   const navigate = useNavigate();
-  const [dashboardData, setDashboardData] = useState<PnLData>(sampleData);
+  const [financialData, setFinancialData] = useState<FinancialData | null>(null);
+  const [insightData, setInsightData] = useState<FinancialInsightResponse | null>(null);
   const [isRealData, setIsRealData] = useState<boolean>(false);
 
   useEffect(() => {
@@ -209,13 +211,41 @@ const PnLDemoPage = () => {
     if (storedData) {
       try {
         const parsedData = JSON.parse(storedData);
-        setDashboardData(parsedData);
+        // Extract financial data and insights
+        const { insights, ...financialDataPart } = parsedData;
+        
+        setFinancialData(financialDataPart);
+        setInsightData({
+          insights: insights?.insights || [],
+          recommendations: insights?.recommendations || [],
+          summary: insights?.summary || 'No summary available',
+          generated_at: insights?.generated_at || new Date().toISOString(),
+          llm_model: insights?.llm_model || 'Unknown'
+        });
         setIsRealData(true);
       } catch (error) {
         console.error('Error parsing stored data:', error);
         // Fallback to sample data if parsing fails
-        setDashboardData(sampleData);
+        const pnlData = adaptFinancialDataToPnLData(sampleData as unknown as FinancialData);
+        setFinancialData(sampleData as unknown as FinancialData);
+        setInsightData({
+          insights: [],
+          recommendations: [],
+          summary: 'Sample data loaded. This is a demonstration with mock data.',
+          generated_at: new Date().toISOString(),
+          llm_model: 'Demo'
+        });
       }
+    } else {
+      // Use sample data if no stored data is available
+      setFinancialData(sampleData as unknown as FinancialData);
+      setInsightData({
+        insights: [],
+        recommendations: [],
+        summary: 'Sample data loaded. This is a demonstration with mock data.',
+        generated_at: new Date().toISOString(),
+        llm_model: 'Demo'
+      });
     }
   }, []);
 
@@ -225,28 +255,21 @@ const PnLDemoPage = () => {
     navigate('/dashboard');
   };
 
-  return (
-    <div className="min-h-screen bg-gray-900">
-      <div className="container mx-auto p-4">
-        {isRealData && (
-          <div className="flex justify-between items-center mb-4">
-            <div className="text-white">
-              <span className="bg-green-600 text-xs font-medium px-2.5 py-0.5 rounded-full mr-2">
-                Real Data
-              </span>
-              Viewing your uploaded financial data
-            </div>
-            <Button 
-              variant="outline" 
-              onClick={handleBackToUpload}
-              className="text-white border-white hover:bg-gray-800"
-            >
-              Upload New File
-            </Button>
-          </div>
-        )}
-        <PnLDashboard data={dashboardData} />
+  // If data is still loading, show a loading state
+  if (!financialData || !insightData) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-gray-700">Loading dashboard data...</p>
+        </div>
       </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 w-full">
+      <Dashboard financialData={financialData} insightData={insightData} />
     </div>
   );
 };
