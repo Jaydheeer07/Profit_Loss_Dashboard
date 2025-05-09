@@ -50,6 +50,16 @@ export interface FinancialData {
   reportType: string;
   sections: PnLSections;
   metadata: PnLMetadata;
+  // Additional properties for direct access
+  income?: {
+    total: number;
+    accounts?: PnLAccount[];
+  };
+  expenses?: {
+    total: number;
+    accounts?: PnLAccount[];
+  };
+  netProfit?: number;
 }
 
 /**
@@ -73,6 +83,12 @@ export interface MetricsResponse {
     [key: string]: any;
     metrics: FinancialMetrics;
   };
+  // Additional properties for direct access
+  grossProfitMargin?: number;
+  netProfitMargin?: number;
+  operatingExpenseRatio?: number;
+  // Allow for any additional metrics
+  [key: string]: any;
 }
 
 /**

@@ -1,6 +1,7 @@
 /**
  * Enhanced file upload component with drag-and-drop functionality.
  * Integrated with the existing API client for the Profit & Loss Dashboard.
+ * Updated to associate uploads with the current organization.
  */
 
 import { useState, useCallback } from 'react';
@@ -10,6 +11,9 @@ import { useToast } from '@/components/ui/use-toast';
 import { apiClient } from '@/api/apiClient';
 import { FinancialData, MetricsResponse, InsightRequest } from '@/types/api';
 import { useNavigate } from 'react-router-dom';
+import { useOrganization } from '@/contexts/OrganizationContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/api/supabaseClient';
 
 const FileUpload = () => {
   const [isDragging, setIsDragging] = useState(false);
@@ -19,6 +23,8 @@ const FileUpload = () => {
   const [processingStep, setProcessingStep] = useState<'idle' | 'uploading' | 'metrics' | 'insights'>('idle');
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { currentOrganization } = useOrganization();
+  const { user } = useAuth();
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -61,7 +67,14 @@ const FileUpload = () => {
   };
 
   const processFile = useCallback(async () => {
-    if (!file) return;
+    if (!file || !currentOrganization || !user) {
+      toast({
+        title: "Error",
+        description: !currentOrganization ? "Please select an organization first" : !user ? "Please log in first" : "Please select a file",
+        variant: "destructive"
+      });
+      return;
+    }
     
     try {
       setIsUploading(true);
@@ -123,10 +136,87 @@ const FileUpload = () => {
       clearInterval(insightsInterval);
       setUploadProgress(100);
       
+      // Save report to Supabase database
+      const reportName = file.name.split('.')[0] || 'Financial Report';
+      const { data: reportData, error: reportError } = await supabase
+        .from('reports')
+        .insert({
+          organization_id: currentOrganization.id,
+          name: reportName,
+          description: `Uploaded on ${new Date().toLocaleDateString()}`,
+          period: fileData.period || 'Current Period',
+          uploaded_by: user.id
+        })
+        .select()
+        .single();
+        
+      if (reportError) {
+        console.error('Error saving report:', reportError);
+        throw new Error('Failed to save report to database');
+      }
+      
+      // Save report data
+      const { error: reportDataError } = await supabase
+        .from('report_data')
+        .insert({
+          report_id: reportData.id,
+          data: {
+            financialData: fileData,
+            metricsData: metricsData,
+            insightsData: insightsData
+          }
+        });
+        
+      if (reportDataError) {
+        console.error('Error saving report data:', reportDataError);
+        throw new Error('Failed to save report data to database');
+      }
+      
+      // Extract and save key metrics for time series data
+      if (metricsData) {
+        const timeSeriesData = [];
+        const period = fileData.period || 'Current Period';
+        
+        // Extract key metrics
+        const metrics = {
+          'gross_profit_margin': metricsData.grossProfitMargin,
+          'net_profit_margin': metricsData.netProfitMargin,
+          'operating_expense_ratio': metricsData.operatingExpenseRatio,
+          'total_revenue': fileData.income?.total || 0,
+          'total_expenses': fileData.expenses?.total || 0,
+          'net_profit': fileData.netProfit || 0
+        };
+        
+        // Prepare time series data
+        for (const [metricName, metricValue] of Object.entries(metrics)) {
+          if (typeof metricValue === 'number') {
+            timeSeriesData.push({
+              organization_id: currentOrganization.id,
+              period: period,
+              metric_name: metricName,
+              metric_value: metricValue
+            });
+          }
+        }
+        
+        // Save time series data
+        if (timeSeriesData.length > 0) {
+          const { error: timeSeriesError } = await supabase
+            .from('time_series_data')
+            .upsert(timeSeriesData);
+            
+          if (timeSeriesError) {
+            console.error('Error saving time series data:', timeSeriesError);
+            // Non-critical error, don't throw
+          }
+        }
+      }
+      
       // Store data in localStorage for dashboard access
       localStorage.setItem('financialData', JSON.stringify(fileData));
       localStorage.setItem('metricsData', JSON.stringify(metricsData));
       localStorage.setItem('insightsData', JSON.stringify(insightsData));
+      localStorage.setItem('currentReportId', reportData.id);
       
       toast({
         title: "Analysis complete!",
@@ -151,7 +241,7 @@ const FileUpload = () => {
       // Reset progress after a delay
       setTimeout(() => setUploadProgress(0), 2000);
     }
-  }, [file, toast, navigate]);
+  }, [file, toast, navigate, currentOrganization, user]);
 
   const getStepLabel = () => {
     switch (processingStep) {
@@ -243,6 +333,12 @@ const FileUpload = () => {
               For best results, use our standardized template format for data upload
             </span>
           </div>
+          
+          {currentOrganization && (
+            <div className="mt-2 text-center text-sm text-blue-600">
+              Uploading to organization: <span className="font-medium">{currentOrganization.name}</span>
+            </div>
+          )}
           
           <div className="mt-6 text-center">
             <a 

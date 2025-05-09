@@ -560,13 +560,411 @@ For the initial release, focus on:
 
 ## 11. Future Enhancements
 
-After MVP completion, consider:
+### 11.1 Planned Enhancements (2025-05-08)
+
+1. **User Authentication & Database Integration**
+   - Implement user authentication using Supabase
+   - Create user management system with roles and permissions
+   - Store historical financial data in Supabase database
+   - Enable multi-organization support with data isolation
+   - Implement time series analysis for trend identification
+
+#### 11.1.1 Database Schema Design
+
+```sql
+-- Users table for authentication and profile information
+CREATE TABLE users (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  email TEXT UNIQUE NOT NULL,
+  full_name TEXT,
+  avatar_url TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  last_login TIMESTAMP WITH TIME ZONE,
+  is_active BOOLEAN DEFAULT TRUE
+);
+
+-- Organizations for multi-tenant support
+CREATE TABLE organizations (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name TEXT NOT NULL,
+  logo_url TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  created_by UUID REFERENCES users(id) NOT NULL
+);
+
+-- Organization members with roles
+CREATE TABLE organization_members (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  organization_id UUID REFERENCES organizations(id) NOT NULL,
+  user_id UUID REFERENCES users(id) NOT NULL,
+  role TEXT NOT NULL CHECK (role IN ('owner', 'admin', 'member', 'viewer')),
+  joined_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(organization_id, user_id)
+);
+
+-- Financial reports uploaded by users
+CREATE TABLE reports (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  organization_id UUID REFERENCES organizations(id) NOT NULL,
+  user_id UUID REFERENCES users(id) NOT NULL,
+  report_name TEXT NOT NULL,
+  report_type TEXT NOT NULL CHECK (report_type IN ('profit_loss', 'balance_sheet', 'cash_flow')),
+  report_period TEXT NOT NULL,
+  report_date DATE NOT NULL,
+  file_path TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  is_processed BOOLEAN DEFAULT FALSE
+);
+
+-- Report data storage (JSON for flexibility)
+CREATE TABLE report_data (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  report_id UUID REFERENCES reports(id) NOT NULL,
+  raw_data JSONB NOT NULL,
+  processed_data JSONB,
+  metrics JSONB,
+  insights JSONB,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Time series data for historical analysis
+CREATE TABLE time_series_data (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  organization_id UUID REFERENCES organizations(id) NOT NULL,
+  metric_name TEXT NOT NULL,
+  metric_value NUMERIC NOT NULL,
+  period_start DATE NOT NULL,
+  period_end DATE NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Vector storage for RAG implementation
+CREATE TABLE embeddings (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  report_id UUID REFERENCES reports(id) NOT NULL,
+  content TEXT NOT NULL,
+  embedding VECTOR(1536),  -- For OpenAI embeddings
+  metadata JSONB,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+```
+
+#### 11.1.2 Row Level Security Policies
+
+```sql
+-- RLS for organizations
+ALTER TABLE organizations ENABLE ROW LEVEL SECURITY;
+CREATE POLICY organization_access ON organizations
+  USING (id IN (
+    SELECT organization_id FROM organization_members 
+    WHERE user_id = auth.uid()
+  ));
+
+-- RLS for reports
+ALTER TABLE reports ENABLE ROW LEVEL SECURITY;
+CREATE POLICY report_access ON reports
+  USING (organization_id IN (
+    SELECT organization_id FROM organization_members 
+    WHERE user_id = auth.uid()
+  ));
+
+-- Similar policies for other tables
+```
+
+2. **RAG Implementation & Conversational AI**
+   - Create vector database for financial document storage
+   - Implement document processing pipeline for financial reports
+   - Develop RAG service for context-aware financial insights
+   - Build conversational interface for financial data exploration
+   - Enable natural language queries about financial performance
+
+#### 11.1.3 RAG Implementation Architecture
+
+```
+┌─────────────────────────── RAG System Architecture ───────────────────────────┐
+│                                                                                │
+│  ┌─────────────────┐     ┌───────────────────┐     ┌───────────────────┐      │
+│  │                 │     │                   │     │                   │      │
+│  │ Document        ├────▶│ Text Chunking     ├────▶│ Embedding         │      │
+│  │ Processing      │     │ & Processing      │     │ Generation        │      │
+│  │                 │     │                   │     │                   │      │
+│  └─────────────────┘     └───────────────────┘     └─────────┬─────────┘      │
+│                                                             │                │
+│                                                             ▼                │
+│                                                  ┌───────────────────┐      │
+│                                                  │                   │      │
+│                                                  │ Vector Database   │      │
+│                                                  │ (Supabase)        │      │
+│                                                  │                   │      │
+│                                                  └─────────┬─────────┘      │
+│                                                            │                │
+│  ┌─────────────────┐     ┌───────────────────┐            │                │
+│  │                 │     │                   │            │                │
+│  │ User Query      ├────▶│ Query Processing  │◀───────────┘                │
+│  │ Interface       │     │ & Retrieval       │                              │
+│  │                 │     │                   │                              │
+│  └─────────────────┘     └───────────┬───────┘                              │
+│                                      │                                      │
+│                                      ▼                                      │
+│                           ┌───────────────────┐                              │
+│                           │                   │                              │
+│                           │ LLM Response      │                              │
+│                           │ Generation        │                              │
+│                           │                   │                              │
+│                           └─────────┬─────────┘                              │
+│                                     │                                        │
+│                                     ▼                                        │
+│                           ┌───────────────────┐                              │
+│                           │                   │                              │
+│                           │ User Interface    │                              │
+│                           │                   │                              │
+│                           └───────────────────┘                              │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### 11.1.4 RAG Implementation Plan
+
+1. **Document Processing Service**
+   ```python
+   # backend/app/services/document_service.py
+   from typing import List, Dict, Any
+   from pydantic import BaseModel
+   import openai
+   from supabase import create_client
+   
+   class DocumentChunk(BaseModel):
+       """Represents a chunk of text from a financial document."""
+       content: str
+       metadata: Dict[str, Any]
+       embedding: List[float] = None
+   
+   class DocumentService:
+       """Service for processing financial documents and generating embeddings."""
+       
+       def __init__(self, supabase_client, openai_client):
+           """Initialize the document service.
+           
+           Args:
+               supabase_client: Supabase client for database operations
+               openai_client: OpenAI client for embedding generation
+           """
+           self.supabase = supabase_client
+           self.openai = openai_client
+       
+       def process_document(self, report_id: str, content: str) -> List[str]:
+           """Process a document and split it into chunks.
+           
+           Args:
+               report_id: ID of the report being processed
+               content: Raw text content of the document
+               
+           Returns:
+               List of document chunk IDs
+           """
+           # Split document into chunks (implement chunking strategy)
+           chunks = self._split_into_chunks(content)
+           
+           # Generate embeddings for each chunk
+           chunk_ids = []
+           for chunk in chunks:
+               embedding = self._generate_embedding(chunk.content)
+               chunk.embedding = embedding
+               
+               # Store in Supabase
+               result = self.supabase.table('embeddings').insert({
+                   'report_id': report_id,
+                   'content': chunk.content,
+                   'embedding': embedding,
+                   'metadata': chunk.metadata
+               }).execute()
+               
+               chunk_ids.append(result.data[0]['id'])
+           
+           return chunk_ids
+       
+       def _split_into_chunks(self, content: str) -> List[DocumentChunk]:
+           """Split document content into appropriate chunks.
+           
+           Args:
+               content: Document content to split
+               
+           Returns:
+               List of document chunks with metadata
+           """
+           # Implement chunking strategy (e.g., by section, sliding window, etc.)
+           # For financial documents, chunking by sections makes sense
+           # Reason: Financial reports have natural section boundaries
+           
+           # Example implementation (simplified)
+           chunks = []
+           sections = self._identify_sections(content)
+           
+           for section in sections:
+               chunks.append(DocumentChunk(
+                   content=section['text'],
+                   metadata={
+                       'section': section['title'],
+                       'position': section['position']
+                   }
+               ))
+           
+           return chunks
+       
+       def _generate_embedding(self, text: str) -> List[float]:
+           """Generate embedding for text using OpenAI API.
+           
+           Args:
+               text: Text to generate embedding for
+               
+           Returns:
+               Embedding vector
+           """
+           response = self.openai.embeddings.create(
+               model="text-embedding-ada-002",
+               input=text
+           )
+           
+           return response.data[0].embedding
+   ```
+
+2. **RAG Query Service**
+   ```python
+   # backend/app/services/rag_service.py
+   from typing import List, Dict, Any
+   from pydantic import BaseModel
+   import openai
+   from supabase import create_client
+   
+   class QueryResult(BaseModel):
+       """Result of a RAG query."""
+       answer: str
+       sources: List[Dict[str, Any]]
+       
+   class RAGService:
+       """Service for RAG-based query answering."""
+       
+       def __init__(self, supabase_client, openai_client):
+           """Initialize the RAG service.
+           
+           Args:
+               supabase_client: Supabase client for database operations
+               openai_client: OpenAI client for LLM queries
+           """
+           self.supabase = supabase_client
+           self.openai = openai_client
+       
+       def query(self, organization_id: str, query_text: str) -> QueryResult:
+           """Process a user query and generate a response using RAG.
+           
+           Args:
+               organization_id: ID of the user's organization
+               query_text: User's query text
+               
+           Returns:
+               QueryResult with answer and sources
+           """
+           # Generate embedding for query
+           query_embedding = self._generate_embedding(query_text)
+           
+           # Retrieve relevant chunks from vector database
+           relevant_chunks = self._retrieve_relevant_chunks(organization_id, query_embedding)
+           
+           # Generate context from chunks
+           context = self._generate_context(relevant_chunks)
+           
+           # Generate response using LLM
+           answer = self._generate_response(query_text, context)
+           
+           # Format sources
+           sources = self._format_sources(relevant_chunks)
+           
+           return QueryResult(answer=answer, sources=sources)
+       
+       def _generate_embedding(self, text: str) -> List[float]:
+           """Generate embedding for text using OpenAI API."""
+           response = self.openai.embeddings.create(
+               model="text-embedding-ada-002",
+               input=text
+           )
+           
+           return response.data[0].embedding
+       
+       def _retrieve_relevant_chunks(self, organization_id: str, query_embedding: List[float], limit: int = 5) -> List[Dict]:
+           """Retrieve relevant chunks from vector database."""
+           # Get reports accessible to the organization
+           reports_query = self.supabase.table('reports').select('id').eq('organization_id', organization_id).execute()
+           report_ids = [report['id'] for report in reports_query.data]
+           
+           # Vector search in embeddings table
+           # Note: This uses Supabase's pgvector extension
+           query = self.supabase.rpc(
+               'match_embeddings',
+               {
+                   'query_embedding': query_embedding,
+                   'match_threshold': 0.7,
+                   'match_count': limit,
+                   'report_ids': report_ids
+               }
+           ).execute()
+           
+           return query.data
+       
+       def _generate_context(self, chunks: List[Dict]) -> str:
+           """Generate context from retrieved chunks."""
+           context = "\n\n---\n\n".join([chunk['content'] for chunk in chunks])
+           return context
+       
+       def _generate_response(self, query: str, context: str) -> str:
+           """Generate response using LLM with context."""
+           prompt = f"""You are a financial analyst assistant. Use the following financial report excerpts to answer the question.\n\n
+           Context:\n{context}\n\n
+           Question: {query}\n\n
+           Answer:"""
+           
+           response = self.openai.chat.completions.create(
+               model="gpt-4",
+               messages=[
+                   {"role": "system", "content": "You are a financial analyst assistant that provides accurate, helpful information based on financial reports."},
+                   {"role": "user", "content": prompt}
+               ],
+               temperature=0.3,
+               max_tokens=500
+           )
+           
+           return response.choices[0].message.content
+       
+       def _format_sources(self, chunks: List[Dict]) -> List[Dict]:
+           """Format source information for citation."""
+           sources = []
+           for chunk in chunks:
+               # Get report details
+               report_query = self.supabase.table('reports').select('*').eq('id', chunk['report_id']).execute()
+               report = report_query.data[0] if report_query.data else None
+               
+               sources.append({
+                   'content': chunk['content'][:150] + '...',  # Preview
+                   'report_name': report['report_name'] if report else 'Unknown',
+                   'report_date': report['report_date'] if report else None,
+                   'section': chunk['metadata'].get('section', 'General')
+               })
+           
+           return sources
+   ```
+
+3. **Predictive Analytics**
+   - Implement time series forecasting for financial metrics
+   - Create scenario analysis tools for decision-making
+   - Develop anomaly detection for unusual financial patterns
+   - Enable comparison against industry benchmarks
+   - Provide actionable recommendations based on predictions
+
+### 11.2 Additional Future Enhancements
 
 1. **Backend Enhancements**
    - Direct Xero API integration for real-time data
    - Advanced ML-based insights using scikit-learn
-   - Database integration for persistent storage (PostgreSQL)
-   - User authentication and multi-user support
    - Scheduled report generation and email notifications
 
 2. **Frontend Enhancements**

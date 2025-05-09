@@ -21,7 +21,19 @@ logger.info(f"Using Mock Responses: {settings.use_mock_responses}")
 app = FastAPI(
     title=settings.API_TITLE,
     description=settings.API_DESCRIPTION,
-    version=settings.API_VERSION
+    version=settings.API_VERSION,
+    openapi_tags=[
+        {"name": "Authentication", "description": "User authentication and organization management endpoints"},
+        {"name": "Reports", "description": "Financial report management and analysis"},
+        {"name": "Upload", "description": "File upload endpoints"},
+        {"name": "Analyzer", "description": "Financial data analysis"},
+        {"name": "Insights", "description": "AI-powered financial insights"},
+        {"name": "Export", "description": "Export data to various formats"}
+    ],
+    swagger_ui_parameters={"defaultModelsExpandDepth": -1},
+    swagger_ui_init_oauth={
+        "usePkceWithAuthorizationCodeGrant": True,
+    }
 )
 
 # Configure CORS
@@ -32,6 +44,21 @@ app.add_middleware(
     allow_methods=settings.CORS_ALLOW_METHODS,
     allow_headers=settings.CORS_ALLOW_HEADERS,
 )
+
+# Define security scheme for Swagger UI
+app.openapi_components = {
+    "securitySchemes": {
+        "JWT": {
+            "type": "http",
+            "scheme": "bearer",
+            "bearerFormat": "JWT",
+            "description": "Enter the JWT token from your sign-in response (access_token). Format: 'Bearer YOUR_TOKEN'"
+        }
+    }
+}
+
+# Apply security to all endpoints
+app.openapi_security = {"JWT": []}
 
 # Include API routes
 app.include_router(router, prefix=settings.API_PREFIX)
